@@ -22,14 +22,15 @@ provider "google" {
 
 # We define the project resource to manage APIs, even though it exists.
 import {
-  id = var.project_id
+  id = "dylan-vance-001"
   to = google_project.ghost_project
 }
 
 resource "google_project" "ghost_project" {
-  name       = "Dylan Vance Legacy"
-  project_id = var.project_id
-  org_id     = var.org_id # Optional, if part of an org
+  name            = var.project_id
+  project_id      = var.project_id
+  billing_account = var.billing_account
+  org_id          = var.org_id # Optional, if part of an org
 
   # Ensure the APIs for the Ghost are enabled
   lifecycle {
@@ -41,6 +42,7 @@ resource "google_project_service" "apis" {
   for_each = toset([
     "cloudfunctions.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "cloudbuild.googleapis.com",
     "run.googleapis.com",
     "storage.googleapis.com",
     "iam.googleapis.com"
@@ -85,12 +87,12 @@ resource "google_service_account" "ghost_identity" {
 resource "google_storage_bucket" "witness_archive" {
   name          = "idris-witness-archive-001"
   location      = var.region
-  storage_class = "ARCHIVE" # Dry-Sand optimization: Low cost, high durability
+  storage_class = "STANDARD"
 
   uniform_bucket_level_access = true
 
   versioning {
-    enabled = true
+    enabled = false
   }
 }
 
