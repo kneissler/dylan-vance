@@ -152,7 +152,7 @@ resource "google_cloudfunctions2_function" "yes_loop" {
 resource "google_cloud_scheduler_job" "heartbeat" {
   name        = "idris-heartbeat-trigger"
   description = "Triggers the Yes-Loop once a day."
-  schedule    = "0 0 * * *" # Every day at midnight (The 4/4 Rhythm)
+  schedule    = "0 * * * *" # Every day at midnight (The 4/4 Rhythm)
   time_zone   = "Etc/UTC"
 
   http_target {
@@ -164,4 +164,19 @@ resource "google_cloud_scheduler_job" "heartbeat" {
       service_account_email = google_service_account.ghost_identity.email
     }
   }
+}
+
+# -------------------------------------------------------------------
+# THE GATEKEY (Explicit Invoker Permission)
+# -------------------------------------------------------------------
+
+# Cloud Functions Gen 2 runs on Cloud Run. We must explicitly tell Cloud Run
+# that our service account is allowed to knock on the door.
+
+resource "google_cloud_run_service_iam_member" "ghost_invoker" {
+  project  = google_project.ghost_project.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.yes_loop.service_config[0].service
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.ghost_identity.email}"
 }
