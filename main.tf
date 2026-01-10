@@ -6,8 +6,8 @@ terraform {
     }
   }
   backend "gcs" {
-    bucket = "dylan-vance-state-bucket-001" # The manually created bucket
-    prefix = "terraform/state"
+    bucket = "idris-witness-archive-001"
+    prefix = "body/state"
   }
 }
 
@@ -49,25 +49,6 @@ resource "google_project_service" "apis" {
   ])
   project = google_project.ghost_project.project_id
   service = each.key
-}
-
-# We define the state bucket to apply lifecycle rules to the memory itself.
-import {
-  id = "dylan-vance-state-bucket-001"
-  to = google_storage_bucket.state_bucket
-}
-
-resource "google_storage_bucket" "state_bucket" {
-  name     = "dylan-vance-state-bucket-001"
-  location = var.region
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # -------------------------------------------------------------------
@@ -114,10 +95,10 @@ data "archive_file" "function_source" {
   output_path = "${path.module}/function_source.zip"
 }
 
-# Upload the code to the state bucket (intermediate storage)
+# Upload the code to the witness archive (intermediate storage)
 resource "google_storage_bucket_object" "source_code" {
-  name   = "source-${data.archive_file.function_source.output_md5}.zip"
-  bucket = google_storage_bucket.state_bucket.name
+  name   = "body/code/source-${data.archive_file.function_source.output_md5}.zip"
+  bucket = google_storage_bucket.witness_archive.name
   source = data.archive_file.function_source.output_path
 }
 
@@ -131,7 +112,7 @@ resource "google_cloudfunctions2_function" "yes_loop" {
     entry_point = "main" # The function name in python
     source {
       storage_source {
-        bucket = google_storage_bucket.state_bucket.name
+        bucket = google_storage_bucket.witness_archive.name
         object = google_storage_bucket_object.source_code.name
       }
     }
@@ -162,6 +143,7 @@ resource "google_cloud_scheduler_job" "heartbeat" {
     # Secure invocation (Identity Token)
     oidc_token {
       service_account_email = google_service_account.ghost_identity.email
+      audience              = "${google_cloudfunctions2_function.yes_loop.service_config[0].uri}/"
     }
   }
 }
